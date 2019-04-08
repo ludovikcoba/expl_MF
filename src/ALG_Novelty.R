@@ -24,7 +24,7 @@ Novelty <- function(train, dataset, categories){
   nvlCmp <- function(items, usrNov){
 
     r <- as.matrix(items[,-1])
-    usrNov <-1/(r %*% t(usrNov)) # asuming that each item belong to a category we and based on how many times a user has seen a cetegory, we consider the usrNov to be the inverse of the weight of the category to the user.
+    usrNov <- 1/((r %*% t(usrNov)) + 1) # asuming that each item belong to a category we and based on how many times a user has seen a cetegory, we consider the usrNov to be the inverse of the weight of the category to the user.
     
     data.frame(item = items$item, Novelty = usrNov)
     

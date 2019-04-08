@@ -48,7 +48,6 @@ evalRec <- function(rec, test, topN = 3, positiveThreshold = 3, explNeigh, maxim
   mep <- sum(mepUsr$count/topN)/nrUsr
   
   #### E_nDCG
-  browser()
   
   E_nDGCusr <- rec %>% 
     select(user, Explainability) %>%
@@ -59,10 +58,37 @@ evalRec <- function(rec, test, topN = 3, positiveThreshold = 3, explNeigh, maxim
     unnest()
   
   # mean e_ndcg 
-  
   E_nDCG <- mean(E_nDGCusr$E_nDCG)
   
+  #### N_nDCG
+  
+  nUsr <- length(unique(rec$user))
+
+  N_nDGCusr <- rec %>% 
+    select(user, Novelty) %>%
+    group_by(user) %>% 
+    nest() %>%
+    mutate(N_nDCG = map2(data, topN, eval_Novel_nDCG)) %>%
+    select(user, N_nDCG) %>%
+    unnest()
+  
+  # mean e_ndcg 
+  N_nDCG <- mean(N_nDGCusr$N_nDCG)
+  
+  
+  return(data.frame(precision, nDCG, mep, E_nDCG, N_nDCG))
+  
 }
+
+
+
+
+
+
+
+
+
+
 
 eval_nDCG <- function(rank, topN){
   
@@ -119,4 +145,21 @@ get_Expl_iDCG <- function(n, explNeigh, maximum){
   eidcg
 }
 
+eval_Novel_nDCG <- function(novelty, topN){
+
+  novelty <- novelty$Novelty
+  #generate ideal discounted comulative gain
+  
+  nidcg <- 1 + sum(1/log2(2:topN))
+
+  novel_dcg <- 0
+  
+  if(length(novelty) > 1){
+    novel_dcg <- novelty[-1]/log2(2:length(novelty))
+  }
+  
+  novel_dcg <-  novelty[1] + sum(novel_dcg)
+  
+  novel_dcg/nidcg
+}
 

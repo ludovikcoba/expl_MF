@@ -21,7 +21,7 @@ Shrinkage <- 10 # damping on similarity computation.
 explThreshold <- 3 # threshold for considering the rating on an item explainable.
 learningRate <- 0.001
 regCoef <- 0.001
-regCoefExplain <- 0.05
+regCoefExplain <- 0.2
 regCoefNovelty <- 0
 nrfeat <- 80 #nr latent features
 steps <- 100 # number of iterations
@@ -113,9 +113,7 @@ source("src/ALG_Recommend.R")
 rec <- Recommend(train, usrFeatures, itmFeatures, topN)
 
 #### Evaluate 
-source("src/evalRec.R")
 
-sourceCpp("src/NEMFupdater.cpp")
 
 rec_expl <- getExplainability(d$train, rec, knnUsr)
 rec_nvl <- Novelty(d$train, rec %>% select(-rank) %>% rename(score = predScore), categories)
@@ -124,6 +122,10 @@ rec <- left_join(rec, rec_expl, by = c("user", "item"))
 rec <- left_join(rec, rec_nvl, by = c("user", "item"))
 
 
+rec$Explainability[is.na(rec$Explainability)] <- 0;
+rec$Novelty[is.na(rec$Novelty)] <- 0;
+
+source("src/evalRec.R")
 evalRec(rec, d$test, topN, positiveThreshold, Neigh, max(dataset$score))
 
 
