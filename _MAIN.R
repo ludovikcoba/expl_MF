@@ -1,3 +1,5 @@
+## Note: many method are imported from rrecsys
+install.packages("rrecsys") # please install the library to acknowledge the authors!
 #### Requirements
 if (!require(Rcpp)) install.packages("Rcpp")
 if (!require(tidyverse)) install.packages("tidyverse")
@@ -12,18 +14,21 @@ if (!require(readr)) install.packages("readr")
 #######################
 
 #### Parameters
+outputFile <- "results.txt"
+
 Neigh <- 10
 Shrinkage <- 10 # damping on similarity computation.
 explThreshold <- 3 # threshold for considering the rating on an item explainable.
 learningRate <- 0.001
 regCoef <- 0.001
-regCoefExplain <- 0.1
-regCoefNovelty <- 0.1
+regCoefExplain <- 0.04
+regCoefNovelty <- 0
 nrfeat <- 80 #nr latent features
 steps <- 100 # number of iterations
-reg <- 2 # 1 MF, 2 L2 regulariztion, 3 L1 regularization
+reg <- 1 # 1 MF, 2 L2 regulariztion, 3 L1 regularization
 
 topN <- 10
+positiveThreshold <- 0 # when a ratign is considered a negative feedback
 
 # Read Data
 source("src/readML100K.R") # will load ml100k and movie_categories in the environment.
@@ -71,6 +76,9 @@ train <- left_join(d$train, Expl, by = c("user", "item"))
 train <- left_join(train, Nvl, by = c("user", "item"))
 
 train$Explainability[is.na(train$Explainability)] <- 0;
+#normalize expl
+train$Explainability <- (train$Explainability - min(train$Explainability))/(max(train$Explainability) - min(train$Explainability))
+
 train$Novelty[is.na(train$Novelty)] <- 0;
 
 
@@ -98,3 +106,10 @@ source("src/ALG_Recommend.R")
 rec <- Recommend(train, usrFeatures, itmFeatures, topN)
 
 #### Evaluate 
+source("src/evalRec.R")
+
+evalRec(rec, d$test, topN, positiveThreshold)
+
+
+
+
