@@ -1,9 +1,9 @@
 ## Note: many method are imported from rrecsys
-install.packages("rrecsys") # please install the library to acknowledge the authors!
+install.packages("rrecsys", repos='http://cran.us.r-project.org') # please install the library to acknowledge the authors!
 #### Requirements
-if (!require(Rcpp)) install.packages("Rcpp")
-if (!require(tidyverse)) install.packages("tidyverse")
-if (!require(readr)) install.packages("readr")
+if (!require(Rcpp)) install.packages("Rcpp", repos='http://cran.us.r-project.org')
+if (!require(tidyverse)) install.packages("tidyverse", repos='http://cran.us.r-project.org')
+if (!require(readr)) install.packages("readr", repos='http://cran.us.r-project.org')
 
 #######################
 #######################
@@ -126,8 +126,8 @@ rec$Explainability[is.na(rec$Explainability)] <- 0;
 rec$Novelty[is.na(rec$Novelty)] <- 0;
 
 source("src/evalRec.R")
-evalRec(rec, d$test, topN, positiveThreshold, Neigh, max(dataset$score))
+r <- evalRec(rec, d$test, topN, positiveThreshold, Neigh, max(dataset$score))
 
-
+write.csv(r, outputFile)
 
 
