@@ -36,6 +36,10 @@ evalRec <- function(rec, test, topN = 3, positiveThreshold = 3){
   # mean nDCG
   nDCG <- sum(nDCGusr$val) / nrUsr
   
+  
+  #### MEP
+  browser()
+  
 }
 
 eval_nDCG <- function(rank, topN){

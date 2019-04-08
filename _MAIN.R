@@ -13,7 +13,7 @@ if (!require(readr)) install.packages("readr")
 #######################
 #######################
 
-#### Parameters
+#### Parameters - Config
 outputFile <- "results.txt"
 
 Neigh <- 10
@@ -21,20 +21,22 @@ Shrinkage <- 10 # damping on similarity computation.
 explThreshold <- 3 # threshold for considering the rating on an item explainable.
 learningRate <- 0.001
 regCoef <- 0.001
-regCoefExplain <- 0.04
+regCoefExplain <- 0.05
 regCoefNovelty <- 0
 nrfeat <- 80 #nr latent features
 steps <- 100 # number of iterations
-reg <- 1 # 1 MF, 2 L2 regulariztion, 3 L1 regularization
+reg <- 3 # 1 MF, 2 L2 regulariztion, 3 L1 regularization
+
+adjCos <- FALSE
 
 topN <- 10
-positiveThreshold <- 0 # when a ratign is considered a negative feedback
+positiveThreshold <- 3 # when a ratign is considered a negative feedback
 
 # Read Data
 source("src/readML100K.R") # will load ml100k and movie_categories in the environment.
 
 source("src/evalSplit.R") # load the splitting function. Stratified splitting of the dataset in tran/test, given a splitting ratio.
-d <- evalSplit(ml100k, 0.25) # split train/test
+d <- evalSplit(dataset, 0.25) # split train/test
 
 #######################
 #######################
@@ -46,13 +48,18 @@ d <- evalSplit(ml100k, 0.25) # split train/test
 
 #### Computing item's similarity
 #normalization
-temp <- d$train
-temp <- temp %>% 
-  group_by(user) %>% 
-  summarise(offset = mean(score)) 
 
-temp <- inner_join(temp, d$train) %>% 
-  mutate(score = score - offset) %>% select(-offset)
+temp <- d$train
+if(adjCos){
+  temp <- temp %>% 
+    group_by(user) %>% 
+    summarise(offset = mean(score)) 
+  
+  temp <- inner_join(temp, d$train) %>% 
+    mutate(score = score - offset) %>% select(-offset)
+}
+
+
 
 # similarity compute
 sourceCpp("src/compute_similarity.cpp")
@@ -63,11 +70,11 @@ knnUsr <- getKNN(knnUsr, Neigh)
 
 #### Explainability 
 source("src/ALG_Explainability.R")
-Expl <- getExplainability(d$train, knnUsr)
+Expl <- getExplainability(d$train, dataset, knnUsr)
 
 #### Novelty
 source("src/ALG_Novelty.R")
-Nvl <- Novelty(d$train, movie_categories) # not so efficient.
+Nvl <- Novelty(d$train, dataset, categories) # not so efficient.
 
 #### Train
 sourceCpp("src/NEMFupdater.cpp")
@@ -107,6 +114,15 @@ rec <- Recommend(train, usrFeatures, itmFeatures, topN)
 
 #### Evaluate 
 source("src/evalRec.R")
+
+sourceCpp("src/NEMFupdater.cpp")
+
+test <- left_join(d$test, Expl, by = c("user", "item"))
+test <- left_join(test, Nvl, by = c("user", "item"))
+
+test$Explainability[is.na(test$Explainability)] <- 0;
+test$Novelty[is.na(test$Novelty)] <- 0;
+
 
 evalRec(rec, d$test, topN, positiveThreshold)
 

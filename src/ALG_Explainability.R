@@ -1,15 +1,15 @@
-getExplainability <- function(data, knn){
+getExplainability <- function(train, dataset, knn){
   
   explComp <- function(ratings, similar){
     
-    t <- semi_join(data, similar, by = c("user" = "neighbour"))
+    t <- semi_join(train, similar, by = c("user" = "neighbour"))
     t <- semi_join(t, ratings, by = c("item"))
     t <- t %>% filter(score >= explThreshold) # clean items under the threshold
     t %>% group_by(item) %>% summarise(Explainability = sum(score))
     
   }
   
-  temp <- data %>% 
+  temp <- dataset %>% 
     group_by(user) %>% 
     nest()
   
