@@ -117,14 +117,14 @@ source("src/evalRec.R")
 
 sourceCpp("src/NEMFupdater.cpp")
 
-test <- left_join(d$test, Expl, by = c("user", "item"))
-test <- left_join(test, Nvl, by = c("user", "item"))
+rec_expl <- getExplainability(d$train, rec, knnUsr)
+rec_nvl <- Novelty(d$train, rec %>% select(-rank) %>% rename(score = predScore), categories)
 
-test$Explainability[is.na(test$Explainability)] <- 0;
-test$Novelty[is.na(test$Novelty)] <- 0;
+rec <- left_join(rec, rec_expl, by = c("user", "item"))
+rec <- left_join(rec, rec_nvl, by = c("user", "item"))
 
 
-evalRec(rec, d$test, topN, positiveThreshold)
+evalRec(rec, d$test, topN, positiveThreshold, Neigh, max(dataset$score))
 
 
 
