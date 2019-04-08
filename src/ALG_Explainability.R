@@ -9,15 +9,19 @@ getExplainability <- function(data, knn){
     
   }
   
-  
-  
-  temp <- data %>% group_by(user) %>% nest()
+  temp <- data %>% 
+    group_by(user) %>% 
+    nest()
   
   Expl <- knn %>% 
-    group_by(observation) %>% nest(.key = "similar")
+    group_by(observation) %>% 
+    nest(.key = "similar")
+  
   Expl <- inner_join(temp, Expl, by = c("user"="observation")) 
+  
   Expl <- Expl %>% 
     mutate(expl = map2(data, similar, explComp))
+  
   Expl <- Expl %>% 
     select(-data,-similar) %>% unnest()
   

@@ -24,34 +24,38 @@ List NESVDupdater(
     double regCoefNovelty,
     int nrfeat, // the total number of features.
     int steps,
-    bool eucl_manh,
-    int nr_users,
-    int nr_items
+    int reg // 1 MF, 2 L2 regulariztion, 3 L1 regularization
 )
 {
   
-  std::unordered_map<int, NumericVector> user_features;
-  std::unordered_map<int, NumericVector> item_features;
+  int max_uID = -1;
+  int max_iID = -1;
+  
+  for(int i =0; i < sparseRatingMat.nrow(); i++){
+    if(sparseRatingMat(i,USER) > max_uID) max_uID = sparseRatingMat(i,USER);
+    if(sparseRatingMat(i,ITEM) > max_iID) max_iID = sparseRatingMat(i,ITEM);
+  }
   
   
-  NumericMatrix U(nr_users, nrfeat);
-  NumericMatrix V(nr_items, nrfeat);
+  NumericMatrix U(max_uID, nrfeat);
+  NumericMatrix V(max_iID, nrfeat);
   
   double error;
   
-  for(int i = 0; i < nr_users; i++){
+  for(int i = 0; i < max_uID; i++){
     for(int j = 0; j < nrfeat ; j++){
       U(i,j) = R::runif(0,1) * sqrt(0.5f/nrfeat);
     }
   }
   
-  for(int i = 0; i <  nr_items; i++){
+  for(int i = 0; i <  max_iID; i++){
     for(int j = 0; j < nrfeat ; j++){
       V(i,j) = R::runif(0,1) * sqrt(0.5f/nrfeat);
     }
   }
   
   double eij, deltaUif, deltaVjf, pred, novelty_ij, expl_ij;
+  NumericVector uID(max_uID), iID(max_iID);
   
   int i, j;
   
@@ -61,11 +65,14 @@ List NESVDupdater(
     for(int k = 0; k < sparseRatingMat.nrow(); k++){
       
       pred = 0;
-      // -1 to change the index according to C++.
+
       //user index.
-      i = sparseRatingMat(k,USER) - 1;
+      i = (int) sparseRatingMat(k,USER) % max_uID;
       //item index.
-      j = sparseRatingMat(k,ITEM) - 1;
+      j = (int) sparseRatingMat(k,ITEM) % max_iID;
+      
+      uID(i) = sparseRatingMat(k,USER);
+      iID(j) = sparseRatingMat(k,ITEM);
       
       novelty_ij = sparseRatingMat(k,NVL);
       expl_ij = sparseRatingMat(k,EXPL);
@@ -83,29 +90,40 @@ List NESVDupdater(
       
       for(int feat = 0; feat < nrfeat; feat++){
         
-        if(eucl_manh){
-          deltaVjf = learningRate * (2 * eij * U(i,feat) - regCoef * V(j,feat) + regCoefExplain * (U(i,feat) - V(j,feat)) * expl_ij - sgn(U(i,feat) - V(j,feat)) * regCoefNovelty * novelty_ij);
-          deltaUif = learningRate * (2 * eij * V(j,feat) - regCoef * U(i,feat) - regCoefExplain * (U(i,feat) - V(j,feat)) * expl_ij - sgn(U(i,feat) - V(j,feat)) * regCoefNovelty * novelty_ij);
-        }else{
-          
-          //item feature 
-          //deltaVjf = learningRate * (eij * U(i,feat) - regCoef * V(j,feat) + regCoefExplain * expl_ij + regCoefNovelty * V(j,feat) * novelty_ij * novelty_ij);
-          deltaVjf = learningRate * (2*eij * U(i,feat) - regCoef * V(j,feat) - sgn(U(i,feat) - V(j,feat)) * (regCoefExplain * expl_ij + regCoefNovelty * novelty_ij));
-          
-          // user feature 
-          //deltaUif = learningRate * (eij * V(j,feat) - regCoef * U(i,feat) - regCoefExplain * expl_ij);
-          deltaUif = learningRate * (2*eij * V(j,feat) - regCoef * U(i,feat) - sgn(U(i,feat) - V(j,feat)) * (regCoefExplain * expl_ij + regCoefNovelty * novelty_ij));
-          
-          //update
-        }
+        //item feature 
+        deltaVjf = 2 * eij * U(i,feat);
+        deltaVjf -= regCoef * V(j,feat);
+        
+        deltaUif = 2 * eij * V(j,feat);
+        deltaUif -= regCoef * U(i,feat);
+        
+        
+        if(reg == 2){
+          //expl & novelty on items' feature 
+          deltaVjf += regCoefExplain * (U(i,feat) - V(j,feat)) * expl_ij;
+          deltaVjf -= sgn(U(i,feat) - V(j,feat)) * regCoefNovelty * novelty_ij;
+          //expl & novelty on users' feature 
+          deltaUif -= regCoefExplain * (U(i,feat) - V(j,feat)) * expl_ij;
+          deltaUif -= sgn(U(i,feat) - V(j,feat)) * regCoefNovelty * novelty_ij;
 
-        V(j,feat) += deltaVjf;
-        U(i,feat) += deltaUif;
+        }else if(reg == 3){
+          
+          //expl & novelty on item feature 
+          deltaVjf -= sgn(U(i,feat) - V(j,feat)) * (regCoefExplain * expl_ij + regCoefNovelty * novelty_ij);
+          
+          //expl & novelty on users' feature  
+          deltaUif -= sgn(U(i,feat) - V(j,feat)) * (regCoefExplain * expl_ij + regCoefNovelty * novelty_ij);
+          
+          
+        }
+        //update
+        V(j,feat) += learningRate * (deltaVjf);
+        U(i,feat) += learningRate * (deltaUif);
       }
       
     }
     
-    if((ss % 5) == 0) {
+    if((ss % 10) == 0) {
       Rcout << "At step:" << ss << " the objective error is: "<< error <<"\n";
     }
   }
@@ -114,8 +132,11 @@ List NESVDupdater(
   
   
   List ret;
+  ret["uID"] = uID;
   ret["U"] = U;
+  ret["iID"] = iID;
   ret["V"] = V;
+  
   
   return ret;
   
